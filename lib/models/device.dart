@@ -71,6 +71,49 @@ class Device {
   });
 
   factory Device.fromJson(Map<String, dynamic> json) {
+    // Parse lastDataReceived first to calculate proper connection status
+    final lastDataReceived = json['last_data_received'] != null 
+        ? DateTime.parse(json['last_data_received']) 
+        : null;
+    
+    // DEBUG: Print what we're getting from the database
+    if (json['device_name'] == "Hazel's Kitchen") {
+      print('🐛 DEBUG Hazel\'s Kitchen:');
+      print('   📅 last_data_received from DB: ${json['last_data_received']}');
+      print('   📅 parsed lastDataReceived: $lastDataReceived');
+      print('   🕐 current time: ${DateTime.now()}');
+      if (lastDataReceived != null) {
+        final seconds = DateTime.now().difference(lastDataReceived).inSeconds;
+        print('   ⏱️ seconds since data: $seconds');
+      }
+      print('   📊 database connection_status: ${json['connection_status']}');
+    }
+    
+    // CLIENT-SIDE REAL-TIME GAS READING BASED ONLINE/OFFLINE DETECTION
+    // Check if gas readings are actively coming in (like "Just now" timestamps)
+    ConnectionStatus actualConnectionStatus;
+    if (lastDataReceived != null) {
+      final secondsSinceLastData = DateTime.now().difference(lastDataReceived).inSeconds;
+      
+      // Device is ONLINE if gas readings are coming in within the last 10 seconds
+      // This matches the ESP32 upload interval and accounts for network delays
+      actualConnectionStatus = secondsSinceLastData <= 10 
+          ? ConnectionStatus.online 
+          : ConnectionStatus.offline;
+          
+      // DEBUG: Print calculation for Hazel's Kitchen
+      if (json['device_name'] == "Hazel's Kitchen") {
+        print('   🎯 calculated status: ${actualConnectionStatus.value}');
+        print('   ${actualConnectionStatus == ConnectionStatus.online ? "✅" : "❌"} Should be ${actualConnectionStatus.value}');
+      }
+    } else {
+      // No gas readings received, device is offline
+      actualConnectionStatus = ConnectionStatus.offline;
+      if (json['device_name'] == "Hazel's Kitchen") {
+        print('   ❌ No last_data_received - marking OFFLINE');
+      }
+    }
+    
     return Device(
       id: json['id'],
       deviceId: json['device_id'],
@@ -81,14 +124,12 @@ class Device {
       firstConnectedAt: DateTime.parse(json['first_connected_at']),
       lastConnectedAt: DateTime.parse(json['last_connected_at']),
       createdAt: DateTime.parse(json['created_at']),
-      connectionStatus: ConnectionStatus.fromString(json['connection_status']),
+      connectionStatus: actualConnectionStatus, // Use calculated status, not database value
       secondsSinceLastConnection: (json['seconds_since_last_connection'] ?? 0).round(),
       totalReadings: json['total_readings'] ?? 0,
       readingsToday: json['readings_today'],
       totalConnections: json['total_connections'],
-      lastDataReceived: json['last_data_received'] != null 
-          ? DateTime.parse(json['last_data_received']) 
-          : null,
+      lastDataReceived: lastDataReceived,
       currentGasLevel: json['current_gas_level'],
       currentGasValue: json['current_gas_value'],
     );
@@ -178,6 +219,24 @@ class Device {
   }
 
   String get lastSeenText {
+    // Use lastDataReceived for more accurate "last seen" calculation
+    if (lastDataReceived != null) {
+      final secondsSinceData = DateTime.now().difference(lastDataReceived!).inSeconds;
+      if (secondsSinceData < 60) {
+        return 'Just now';
+      } else if (secondsSinceData < 3600) {
+        final minutes = (secondsSinceData / 60).round();
+        return '${minutes}m ago';
+      } else if (secondsSinceData < 86400) {
+        final hours = (secondsSinceData / 3600).round();
+        return '${hours}h ago';
+      } else {
+        final days = (secondsSinceData / 86400).round();
+        return '${days}d ago';
+      }
+    }
+    
+    // Fallback to secondsSinceLastConnection if no lastDataReceived
     if (secondsSinceLastConnection < 60) {
       return 'Just now';
     } else if (secondsSinceLastConnection < 3600) {
@@ -190,6 +249,32 @@ class Device {
       final days = (secondsSinceLastConnection / 86400).round();
       return '${days}d ago';
     }
+  }
+
+  /// Real-time connection status check based on gas reading timestamps
+  /// This getter can be used anywhere to get the current connection status
+  ConnectionStatus get realTimeConnectionStatus {
+    if (lastDataReceived != null) {
+      final secondsSinceData = DateTime.now().difference(lastDataReceived!).inSeconds;
+      // Device is online if gas readings are actively coming in (10 second window)
+      return secondsSinceData <= 10 ? ConnectionStatus.online : ConnectionStatus.offline;
+    }
+    return ConnectionStatus.offline;
+  }
+
+  /// Check if device is currently online (gas readings coming in within 10 seconds)
+  bool get isCurrentlyOnline {
+    return realTimeConnectionStatus == ConnectionStatus.online;
+  }
+
+  /// Check if device has active gas readings based on recent data
+  bool get hasActiveGasReadings {
+    if (lastDataReceived != null) {
+      final secondsSinceData = DateTime.now().difference(lastDataReceived!).inSeconds;
+      // Check if gas readings are actively coming in (match the "Just now" behavior)
+      return secondsSinceData <= 15; // 15 seconds to account for ESP32 upload intervals
+    }
+    return false;
   }
 
   Device copyWith({

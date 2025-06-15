@@ -130,14 +130,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Login'),
-        actions: [
-          IconButton(
-            icon: Icon(
-              widget.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-            ),
-            onPressed: () => widget.onDarkModeChanged(!widget.isDarkMode),
-          ),
-        ],
       ),
       body: Center(
         child: SingleChildScrollView(

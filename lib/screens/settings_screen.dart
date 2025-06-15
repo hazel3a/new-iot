@@ -61,7 +61,7 @@ class SettingsScreen extends StatelessWidget {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.wifi_rounded, color: Colors.teal),
-                title: const Text('WiFi Setup'),
+                title: const Text('WiFi'),
                 subtitle: const Text('Configure gas detector WiFi connection'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () => WiFiProvisioningNavigation.navigateToWiFiSetup(context),

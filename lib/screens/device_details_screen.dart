@@ -6,6 +6,7 @@ import '../services/device_service.dart';
 import '../services/supabase_service.dart';
 import '../utils/time_formatter.dart';
 import '../test_data_fetch.dart';
+import 'alerts_history_screen.dart';
 
 class DeviceDetailsScreen extends StatefulWidget {
   final Device device;
@@ -16,11 +17,10 @@ class DeviceDetailsScreen extends StatefulWidget {
   State<DeviceDetailsScreen> createState() => _DeviceDetailsScreenState();
 }
 
-class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerProviderStateMixin {
+class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
   final DeviceService _deviceService = DeviceService.instance;
   final SupabaseService _supabaseService = SupabaseService.instance;
   
-  late TabController _tabController;
   late Device _currentDevice;
   List<DeviceConnection> _connections = [];
   List<GasSensorReading> _recentReadings = [];
@@ -31,13 +31,11 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
   void initState() {
     super.initState();
     _currentDevice = widget.device;
-    _tabController = TabController(length: 3, vsync: this);
     _loadDeviceData();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -139,6 +137,15 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
       context,
       MaterialPageRoute(
         builder: (context) => TestDataFetch(deviceFilter: _currentDevice.deviceName),
+      ),
+    );
+  }
+
+  void _navigateToAlertHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AlertsHistoryScreen(),
       ),
     );
   }
@@ -318,8 +325,8 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
                     _buildInfoRow('IP Address', _currentDevice.deviceIp!),
                   _buildInfoRow('First Seen', TimeFormatter.formatDateTime(_currentDevice.firstConnectedAt)),
                   _buildInfoRow('Last Seen', TimeFormatter.formatDateTime(_currentDevice.lastConnectedAt)),
-                  if (_currentDevice.lastDataReceived != null)
-                    _buildInfoRow('Last Data', TimeFormatter.formatDateTime(_currentDevice.lastDataReceived!)),
+                  const SizedBox(height: 16),
+                  _buildThresholdIndicators(),
                 ],
               ),
             ),
@@ -350,33 +357,15 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _buildStatCard(
-                          'Today',
-                          '${_currentDevice.readingsToday ?? 0}',
-                          Icons.today,
-                          Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          'Connections',
-                          '${_currentDevice.totalConnections ?? 0}',
-                          Icons.link,
-                          Colors.orange,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildStatCard(
-                          'Last Activity',
-                          _currentDevice.lastSeenText,
-                          Icons.schedule,
-                          Colors.grey,
+                        child: GestureDetector(
+                          onTap: _navigateToAlertHistory,
+                          child: _buildStatCard(
+                            'Alert History',
+                            'View',
+                            Icons.warning_amber,
+                            Colors.orange,
+                            isClickable: true,
+                          ),
                         ),
                       ),
                     ],
@@ -399,34 +388,6 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _testConnection,
-                          icon: const Icon(Icons.bug_report),
-                          label: const Text('Test Connection'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _loadDeviceData,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Refresh'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -490,13 +451,20 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color, {bool isClickable = false}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: isClickable ? [
+          BoxShadow(
+            color: color.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ] : null,
       ),
       child: Column(
         children: [
@@ -519,155 +487,110 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
             ),
             textAlign: TextAlign.center,
           ),
+          if (isClickable) ...[
+            const SizedBox(height: 4),
+            Icon(
+              Icons.touch_app,
+              color: color.withValues(alpha: 0.6),
+              size: 16,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildConnectionsTab() {
-    if (_connections.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildThresholdIndicators() {
+    const int safeThreshold = 100;
+    const int warningThreshold = 300;
+    const int dangerThreshold = 600;
+    const int criticalThreshold = 1000;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Gas Level Thresholds',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            Icon(Icons.link_off, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'No connection history',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Expanded(
+              child: _buildThresholdCard(
+                'SAFE',
+                '0-${safeThreshold}',
+                Icons.check_circle,
+                Colors.green,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildThresholdCard(
+                'WARNING',
+                '${safeThreshold + 1}-${warningThreshold}',
+                Icons.warning_amber,
+                Colors.orange,
+              ),
             ),
           ],
         ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: _connections.length,
-      itemBuilder: (context, index) {
-        final connection = _connections[index];
-        // Using TimeFormatter for consistent 12-hour format
-        
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: ListTile(
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: connection.isActive ? Colors.green : Colors.grey,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                connection.isActive ? Icons.link : Icons.link_off,
-                color: Colors.white,
-                size: 20,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildThresholdCard(
+                'DANGER',
+                '${warningThreshold + 1}-${dangerThreshold}',
+                Icons.error,
+                Colors.red,
               ),
             ),
-            title: Text('${connection.connectionType} Connection'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Connected: ${TimeFormatter.formatCompactDateTime(connection.connectedAt)}'),
-                if (connection.disconnectedAt != null)
-                  Text('Disconnected: ${TimeFormatter.formatCompactDateTime(connection.disconnectedAt!)}'),
-                Text('Data points: ${connection.dataCount}'),
-              ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildThresholdCard(
+                'CRITICAL',
+                '${dangerThreshold + 1}+',
+                Icons.dangerous,
+                Colors.red[800]!,
+              ),
             ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: connection.isActive ? Colors.green : Colors.grey,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    connection.isActive ? 'Active' : 'Inactive',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (!connection.isActive)
-                  Text(
-                    connection.connectionDurationText,
-                    style: const TextStyle(fontSize: 10),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildReadingsTab() {
-    if (_recentReadings.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.sensors_off, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'No readings found',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: _recentReadings.length,
-      itemBuilder: (context, index) {
-        final reading = _recentReadings[index];
-        // Using TimeFormatter for consistent 12-hour format
-        
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: ListTile(
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _getGasLevelColor(reading.gasLevel),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.sensors,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            title: Text('Gas Level: ${reading.gasLevel}'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Value: ${reading.gasValue} ppm'),
-                Text('Deviation: ${reading.deviation}'),
-                Text(TimeFormatter.formatCompactDateTime(reading.createdAt)),
-              ],
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _getGasLevelColor(reading.gasLevel),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${reading.gasValue}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+  Widget _buildThresholdCard(String level, String range, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            level,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 2),
+          Text(
+            '${range} ppm',
+            style: TextStyle(
+              fontSize: 10,
+              color: color.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -678,17 +601,13 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
         title: Text(_currentDevice.deviceName),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'Overview', icon: Icon(Icons.info)),
-            Tab(text: 'Connections', icon: Icon(Icons.link)),
-            Tab(text: 'Readings', icon: Icon(Icons.sensors)),
-          ],
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadDeviceData,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -716,14 +635,7 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> with TickerPr
                     ],
                   ),
                 )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildDeviceOverview(),
-                    _buildConnectionsTab(),
-                    _buildReadingsTab(),
-                  ],
-                ),
+              : _buildDeviceOverview(),
     );
   }
 } 

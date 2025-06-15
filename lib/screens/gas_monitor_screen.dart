@@ -103,13 +103,14 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
       // Load all devices but filter out test devices using SupabaseService filtering
       final allDevices = await _deviceService.getDeviceHistory();
       
-      // Filter out test devices using the same logic as SupabaseService
+      // Filter out test devices AND blocked devices
       final filteredDevices = allDevices.where((device) => 
-        !_isTestDevice(device.deviceName)).toList();
+        !_isTestDevice(device.deviceName) && device.status != DeviceStatus.blocked).toList();
       
-      // Load only online devices for status indicator (also filtered)
+      // Load only devices with active gas readings for status indicator (also filtered)
+      // Use gas reading activity for accurate online detection
       final onlineDevices = filteredDevices.where((device) => 
-        device.connectionStatus == ConnectionStatus.online).toList();
+        device.hasActiveGasReadings).toList();
       
       if (mounted) {
         setState(() {
@@ -184,22 +185,27 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
           // Immediate state update for instant UI reflection
           if (mounted) {
             setState(() {
-              // Update device in available devices list
-              final index = _availableDevices.indexWhere((d) => d.deviceId == device.deviceId);
-              if (index != -1) {
-                _availableDevices[index] = device;
+              // Update device in available devices list (only if not blocked)
+              if (device.status != DeviceStatus.blocked) {
+                final index = _availableDevices.indexWhere((d) => d.deviceId == device.deviceId);
+                if (index != -1) {
+                  _availableDevices[index] = device;
+                } else {
+                  _availableDevices.add(device);
+                }
               } else {
-                _availableDevices.add(device);
+                // Remove blocked device from the list if it exists
+                _availableDevices.removeWhere((d) => d.deviceId == device.deviceId);
               }
               
-              // Instantly update online devices list
+              // Instantly update online devices list using gas reading activity (excluding blocked)
               _onlineDevices = _availableDevices.where((d) => 
-                d.connectionStatus == ConnectionStatus.online).toList();
+                d.hasActiveGasReadings && d.status != DeviceStatus.blocked).toList();
             });
           }
           
           // Debug log for instant detection verification
-          debugPrint('🔄 INSTANT UPDATE: Device ${device.deviceName} is now ${device.connectionStatus}');
+          debugPrint('🔄 INSTANT UPDATE: Device ${device.deviceName} is now ${device.connectionStatus} (Status: ${device.status.value})');
         },
         onNewConnection: (connection) {
           // Immediate refresh when new connections are made
@@ -213,17 +219,20 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
   }
 
   void _setupPeriodicRefresh() {
-    // Real-time refresh every 2 seconds for continuous updates
-    _periodicTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    // Real-time refresh every 3 seconds to match gas reading activity
+    _periodicTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       _refreshDeviceStatusInstantly();
       
       // Force refresh of gas data provider for real-time data
       ref.read(gasDataProvider.notifier).refresh();
       
-      // Trigger UI update for live time displays in readings
+      // Trigger UI update for live time displays and device online/offline status
       if (mounted) {
         setState(() {
-          // This forces rebuild of time-dependent widgets for real-time updates
+          // This forces rebuild of time-dependent widgets and online/offline status
+          // Update online devices list based on real-time gas reading activity
+          _onlineDevices = _availableDevices.where((d) => 
+            d.hasActiveGasReadings).toList();
         });
       }
     });
@@ -234,12 +243,12 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
       // Quick device status check without full reload
       final allDevices = await _deviceService.getDeviceHistory();
       
-      // Filter out test devices using the same logic as SupabaseService
+      // Filter out test devices AND blocked devices
       final filteredDevices = allDevices.where((device) => 
-        !_isTestDevice(device.deviceName)).toList();
+        !_isTestDevice(device.deviceName) && device.status != DeviceStatus.blocked).toList();
       
       final onlineDevices = filteredDevices.where((device) => 
-        device.connectionStatus == ConnectionStatus.online).toList();
+        device.hasActiveGasReadings).toList();
       
       // Only update if there's a change to avoid unnecessary rebuilds
       if (mounted && (_availableDevices.length != filteredDevices.length || 
@@ -358,7 +367,7 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
                     ),
                   ),
                   ..._availableDevices.map((device) {
-                    final isOnline = device.connectionStatus == ConnectionStatus.online;
+                    final isOnline = device.hasActiveGasReadings;
                     return DropdownMenuItem<String>(
                       value: device.deviceName,
                       child: Row(
@@ -799,17 +808,6 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
                     ),
                   );
                   break;
-                case 'alerts_history':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AlertsHistoryScreen(),
-                    ),
-                  );
-                  break;
-                case 'wifi_setup':
-                  WiFiProvisioningNavigation.navigateToWiFiSetup(context);
-                  break;
                 case 'settings':
                   Navigator.push(
                     context,
@@ -834,26 +832,6 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
                     Icon(Icons.devices, color: Colors.indigo),
                     SizedBox(width: 8),
                     Text('Devices'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'alerts_history',
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber, color: Colors.deepOrange),
-                    SizedBox(width: 8),
-                    Text('Alerts & History'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'wifi_setup',
-                child: Row(
-                  children: [
-                    Icon(Icons.wifi_rounded, color: Colors.teal),
-                    SizedBox(width: 8),
-                    Text('WiFi Setup'),
                   ],
                 ),
               ),
