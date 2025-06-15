@@ -316,15 +316,17 @@ class _ActiveDevicesScreenState extends State<ActiveDevicesScreen> {
   Color _getGasLevelColor(String gasLevel) {
     switch (gasLevel) {
       case 'SAFE':
-        return Colors.green;
+        return const Color(0xFF34BB8B);
       case 'WARNING':
-        return Colors.orange;
+        return const Color(0xFFFBBF24);
       case 'DANGER':
-        return Colors.red;
+        return const Color(0xFFF87171);
       case 'CRITICAL':
-        return Colors.red[800]!;
+        return const Color(0xFF8B0000); // Bloody red
+      case 'UNKNOWN':
+        return const Color(0xFF6B7280);
       default:
-        return Colors.grey;
+        return const Color(0xFF6B7280);
     }
   }
 

@@ -17,14 +17,7 @@ import '../utils/wifi_provisioning_navigation.dart';
 
 
 class GasMonitorScreen extends ConsumerStatefulWidget {
-  final bool isDarkMode;
-  final ValueChanged<bool> onDarkModeChanged;
-  
-  const GasMonitorScreen({
-    super.key,
-    this.isDarkMode = false,
-    required this.onDarkModeChanged,
-  });
+  const GasMonitorScreen({super.key});
 
   @override
   ConsumerState<GasMonitorScreen> createState() => _GasMonitorScreenState();
@@ -273,27 +266,69 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
 
   Future<void> _handleLogout() async {
     try {
-      // Show confirmation dialog
-      final shouldLogout = await showDialog<bool>(
+      final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
+          backgroundColor: const Color(0xFF111827),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF87171).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.logout,
+                  color: Color(0xFFF87171),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Sign Out',
+                style: TextStyle(
+                  color: Color(0xFFFFFFFF),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Are you sure you want to sign out? Gas monitoring notifications will be stopped.',
+            style: TextStyle(
+              color: Color(0xFFE5E7EB),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF),
+                ),
+              ),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF87171),
+                foregroundColor: const Color(0xFFFFFFFF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Sign Out'),
             ),
           ],
         ),
       );
 
-      if (shouldLogout == true) {
+      if (confirmed == true) {
         // 🔔 STOP NOTIFICATIONS: User is logging out
         try {
           GasNotificationService.instance.stopMonitoring();
@@ -308,12 +343,9 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
         // Navigate to login screen and clear navigation stack
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => LoginScreen(
-                isDarkMode: widget.isDarkMode,
-                onDarkModeChanged: widget.onDarkModeChanged,
+                          MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
               ),
-            ),
             (route) => false,
           );
         }
@@ -322,48 +354,99 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Logout failed: $e'),
-            backgroundColor: Colors.red,
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF87171).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.error_outline,
+                    color: Color(0xFFF87171),
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Logout failed: $e',
+                    style: const TextStyle(
+                      color: Color(0xFFFFFFFF),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF111827),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
           ),
         );
       }
     }
   }
 
-
-
   Widget _buildDeviceFilter() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF374151),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4ADE80).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.developer_board,
+              color: Color(0xFF4ADE80),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 isExpanded: true,
                 value: _selectedDeviceName,
-                hint: const Row(
-                  children: [
-                    Icon(Icons.developer_board, size: 18, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('All Devices', style: TextStyle(fontFamily: 'Roboto')),
-                  ],
+                dropdownColor: const Color(0xFF111827),
+                style: const TextStyle(
+                  color: Color(0xFFE5E7EB),
+                  fontSize: 16,
+                  fontFamily: 'Inter',
+                ),
+                hint: const Text(
+                  'All Devices',
+                  style: TextStyle(
+                    color: Color(0xFFE5E7EB),
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                  ),
                 ),
                 items: [
                   const DropdownMenuItem<String>(
                     value: null,
-                    child: Row(
-                      children: [
-                        Icon(Icons.developer_board, size: 18, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text('All Devices', style: TextStyle(fontFamily: 'Roboto')),
-                      ],
+                    child: Text(
+                      'All Devices',
+                      style: TextStyle(
+                        color: Color(0xFFE5E7EB),
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ),
                   ..._availableDevices.map((device) {
@@ -372,27 +455,42 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
                       value: device.deviceName,
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.circle,
-                            color: isOnline ? Colors.green : Colors.grey,
-                            size: 8,
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: isOnline ? const Color(0xFF4ADE80) : const Color(0xFF6B7280),
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               device.deviceName,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontFamily: 'Roboto'),
+                              style: const TextStyle(
+                                color: Color(0xFFE5E7EB),
+                                fontFamily: 'Inter',
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            isOnline ? 'Online' : 'Offline',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isOnline ? Colors.green[700] : Colors.grey[600],
-                              fontFamily: 'Roboto',
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isOnline 
+                                  ? const Color(0xFF4ADE80).withOpacity(0.1)
+                                  : const Color(0xFF6B7280).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isOnline ? 'Online' : 'Offline',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isOnline ? const Color(0xFF4ADE80) : const Color(0xFF6B7280),
+                                fontFamily: 'Inter',
+                              ),
                             ),
                           ),
                         ],
@@ -401,10 +499,13 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
                   }),
                 ],
                 onChanged: _onDeviceFilterChanged,
+                icon: const Icon(
+                  Icons.expand_more,
+                  color: Color(0xFF6B7280),
+                ),
               ),
             ),
           ),
-
         ],
       ),
     );
@@ -412,216 +513,328 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
 
   Widget _buildLatestReadingCard(GasDataState gasDataState) {
     if (gasDataState.isLoading && gasDataState.latestReading == null) {
-      return Card(
+      return Container(
         margin: const EdgeInsets.all(16),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-                                    Text(
-                        'Loading real-time data...',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontFamily: 'Roboto',
-                        ),
-                      ),
-              const SizedBox(height: 8),
-                                    Text(
-                        'Connecting to live sensors...',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                          fontFamily: 'Roboto',
-                        ),
-                      ),
-            ],
-          ),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4ADE80).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4ADE80)),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Loading real-time data...',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: const Color(0xFFFFFFFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Connecting to live sensors...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF9CA3AF),
+              ),
+            ),
+          ],
         ),
       );
     }
 
     if (gasDataState.error != null) {
-      return Card(
+      return Container(
         margin: const EdgeInsets.all(16),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red[400],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Connection Error',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontFamily: 'Roboto',
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                gasDataState.error!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontFamily: 'Roboto',
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.read(gasDataProvider.notifier).refresh(),
-                child: const Text(
-                  'Retry Connection',
-                  style: TextStyle(fontFamily: 'Roboto'),
-                ),
-              ),
-            ],
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0xFFF87171).withOpacity(0.3),
+            width: 1,
           ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF87171).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Color(0xFFF87171),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Connection Error',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: const Color(0xFFFFFFFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              gasDataState.error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF9CA3AF),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => ref.read(gasDataProvider.notifier).refresh(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4ADE80),
+                foregroundColor: const Color(0xFF0F0F0F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: const Text(
+                'Retry Connection',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
 
     if (gasDataState.latestReading == null) {
-      return Card(
+      return Container(
         margin: const EdgeInsets.all(16),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Icon(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6B7280).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
                 Icons.sensors_off,
-                size: 64,
-                color: Colors.grey[400],
+                size: 48,
+                color: Color(0xFF6B7280),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'No Data Available',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontFamily: 'Roboto',
-                ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No Data Available',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: const Color(0xFFFFFFFF),
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Waiting for real-time sensor data...',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                  fontFamily: 'Roboto',
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Waiting for real-time sensor data...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF9CA3AF),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
     final reading = gasDataState.latestReading!;
+    
+    // Determine colors based on gas levels using Bankout theme
+    Color levelColor;
+    if (reading.gasLevel.toLowerCase() == 'safe') {
+      levelColor = const Color(0xFF4ADE80); // Mint green for safe
+    } else if (reading.gasLevel.toLowerCase() == 'warning') {
+      levelColor = const Color(0xFFFBBF24); // Yellow for warning
+    } else if (reading.gasLevel.toLowerCase() == 'danger') {
+      levelColor = const Color(0xFFF87171); // Soft red for danger
+    } else if (reading.gasLevel.toLowerCase() == 'critical') {
+      levelColor = const Color(0xFF8B0000); // Bloody red for critical
+    } else {
+      levelColor = const Color(0xFFF87171); // Default red for unknown
+    }
+    
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
         return Transform.scale(
           scale: _pulseAnimation.value,
-          child: Card(
+          child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            elevation: 4,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    reading.levelColor.withValues(alpha: 0.1),
-                    reading.levelColor.withValues(alpha: 0.05),
-                  ],
-                ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: levelColor.withOpacity(0.3),
+                width: 2,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  // Header with icon and title
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: levelColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
                           reading.levelIcon,
-                          size: 40,
-                          color: reading.levelColor,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Current Gas Level',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Gas Level Display
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: reading.levelColor,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Text(
-                        reading.gasLevel.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Roboto',
+                          size: 32,
+                          color: levelColor,
                         ),
                       ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Current Gas Level',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: const Color(0xFFFFFFFF),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Gas Level Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: levelColor,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Gas Value
-                    Text(
-                      '${reading.gasValue} PPM',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    child: Text(
+                      reading.gasLevel.toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF0F0F0F),
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: reading.levelColor,
+                        fontFamily: 'Inter',
+                        letterSpacing: 1.2,
                       ),
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Timestamp and Device Info
-                    Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              TimeFormatter.formatDateTime(reading.createdAt),
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Gas Value Display
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        '${reading.gasValue}',
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: levelColor,
+                          fontSize: 48,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.device_hub, size: 16, color: Colors.grey[600]),
-                            const SizedBox(width: 4),
-                            Text(
-                              reading.deviceName,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'PPM',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: levelColor,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Info Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F0F0F),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 20,
+                                color: const Color(0xFF4ADE80),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                TimeFormatter.formatDateTime(reading.createdAt),
+                                style: const TextStyle(
+                                  color: Color(0xFFE5E7EB),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F0F0F),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.device_hub,
+                                size: 20,
+                                color: const Color(0xFF4ADE80),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                reading.deviceName,
+                                style: const TextStyle(
+                                  color: Color(0xFFE5E7EB),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -634,33 +847,42 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
     if (gasDataState.recentReadings.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Card(
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.timeline,
-                  size: 48,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No Recent Readings',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Real-time readings will appear here automatically',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6B7280).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.timeline,
+                size: 48,
+                color: Color(0xFF6B7280),
+              ),
             ),
-          ),
+            const SizedBox(height: 24),
+            Text(
+              'No Recent Readings',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: const Color(0xFFFFFFFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Real-time readings will appear here automatically',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF9CA3AF),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
@@ -670,12 +892,29 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Recent Readings',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.teal,
-            ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4ADE80).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.timeline,
+                  color: Color(0xFF4ADE80),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Recent Readings',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFFFFFFF),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -685,76 +924,133 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
           itemCount: gasDataState.recentReadings.length,
           itemBuilder: (context, index) {
             final reading = gasDataState.recentReadings[index];
+            
+            // Determine colors based on gas levels using Bankout theme
+            Color levelColor;
+            if (reading.gasLevel.toLowerCase() == 'safe') {
+              levelColor = const Color(0xFF4ADE80); // Mint green for safe
+            } else if (reading.gasLevel.toLowerCase() == 'warning') {
+              levelColor = const Color(0xFFFBBF24); // Yellow for warning
+            } else if (reading.gasLevel.toLowerCase() == 'danger') {
+              levelColor = const Color(0xFFF87171); // Soft red for danger
+            } else if (reading.gasLevel.toLowerCase() == 'critical') {
+              levelColor = const Color(0xFF8B0000); // Bloody red for critical
+            } else {
+              levelColor = const Color(0xFFF87171); // Default red for unknown
+            }
+            
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Card(
-                elevation: 2,
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: reading.levelColor.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: levelColor.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    // Status indicator
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: levelColor.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        reading.levelIcon,
+                        color: levelColor,
+                        size: 20,
+                      ),
                     ),
-                    child: Icon(
-                      reading.levelIcon,
-                      color: reading.levelColor,
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    'Gas Level: ${reading.gasLevel.toUpperCase()} - ${reading.gasValue} PPM',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: reading.levelColor,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Device: ${reading.deviceName}'),
-                      Row(
+                    const SizedBox(width: 16),
+                    
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            TimeFormatter.getTimeAgo(reading.createdAt),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
+                          // Gas level badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: levelColor,
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            child: Text(
+                              reading.gasLevel.toUpperCase(),
+                              style: const TextStyle(
+                                color: Color(0xFF0F0F0F),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Device name
+                          Text(
+                            reading.deviceName,
+                            style: const TextStyle(
+                              color: Color(0xFFE5E7EB),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          
+                          // Timestamp
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color: const Color(0xFF6B7280),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                TimeFormatter.getTimeAgo(reading.createdAt),
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: reading.levelColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
+                    ),
+                    
+                    // Gas value display
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
                           '${reading.gasValue}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
+                          style: TextStyle(
+                            color: levelColor,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            fontFamily: 'Inter',
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ppm',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey[600],
+                        Text(
+                          'PPM',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: levelColor,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             );
@@ -778,104 +1074,217 @@ class _GasMonitorScreenState extends ConsumerState<GasMonitorScreen>
     });
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFF0F0F0F),
       appBar: AppBar(
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'GAS LEAK MONITOR',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              letterSpacing: 1.2,
-              fontFamily: 'Roboto',
+        backgroundColor: const Color(0xFF0F0F0F),
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4ADE80).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.gas_meter_rounded,
+                color: Color(0xFF34BB8B),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Gas Leak Detector',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Color(0xFFFFFFFF),
+                fontFamily: 'SF Pro Display',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Online devices indicator
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _onlineDevices.isNotEmpty 
+                        ? const Color(0xFF4ADE80) 
+                        : const Color(0xFF6B7280),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${_onlineDevices.length}',
+                  style: const TextStyle(
+                    color: Color(0xFFE5E7EB),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu),
-            onSelected: (value) {
-              switch (value) {
-                case 'devices':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DevicesScreen(),
-                    ),
-                  );
-                  break;
-                case 'settings':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SettingsScreen(
-                        isDarkMode: widget.isDarkMode,
-                        onDarkModeChanged: widget.onDarkModeChanged,
+          
+          // Menu button
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.more_vert,
+                color: Color(0xFF4ADE80),
+              ),
+              color: const Color(0xFF111827),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              onSelected: (value) {
+                switch (value) {
+                  case 'devices':
+                    Navigator.push(
+                      context,
+                                              MaterialPageRoute(
+                          builder: (context) => const DevicesScreen(),
+                        ),
+                    );
+                    break;
+                  case 'settings':
+                    Navigator.push(
+                      context,
+                                              MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
+                        ),
+                    );
+                    break;
+                  case 'logout':
+                    _handleLogout();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'devices',
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4ADE80).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.devices,
+                          color: Color(0xFF4ADE80),
+                          size: 16,
+                        ),
                       ),
-                    ),
-                  );
-                  break;
-                case 'logout':
-                  _handleLogout();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'devices',
-                child: Row(
-                  children: [
-                    Icon(Icons.devices, color: Colors.indigo),
-                    SizedBox(width: 8),
-                    Text('Devices'),
-                  ],
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Devices',
+                        style: TextStyle(
+                          color: Color(0xFFE5E7EB),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Text('Settings'),
-                  ],
+                PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6B7280).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.settings,
+                          color: Color(0xFF6B7280),
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Settings',
+                        style: TextStyle(
+                          color: Color(0xFFE5E7EB),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
-                  ],
+                PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF87171).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(
+                          Icons.logout,
+                          color: Color(0xFFF87171),
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Sign Out',
+                        style: TextStyle(
+                          color: Color(0xFFF87171),
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(gasDataProvider.notifier).refresh(),
+        color: const Color(0xFF4ADE80),
+        backgroundColor: const Color(0xFF111827),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Device Filter Section (removed real-time status indicator)
+              const SizedBox(height: 8),
+              
+              // Device Filter Section
               _buildDeviceFilter(),
               
               // Current Gas Level Section (Real-time)
               _buildLatestReadingCard(gasDataState),
               
               // Recent Readings Section (Real-time)
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               _buildRecentReadingsSection(gasDataState),
               
               // Bottom padding for better scrolling

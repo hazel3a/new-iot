@@ -7,14 +7,7 @@ import 'devices_screen.dart';
 import 'alerts_history_screen.dart';
 
 class RealTimeGasMonitorScreen extends ConsumerStatefulWidget {
-  final bool isDarkMode;
-  final ValueChanged<bool> onDarkModeChanged;
-  
-  const RealTimeGasMonitorScreen({
-    super.key,
-    this.isDarkMode = false,
-    required this.onDarkModeChanged,
-  });
+  const RealTimeGasMonitorScreen({super.key});
 
   @override
   ConsumerState<RealTimeGasMonitorScreen> createState() => _RealTimeGasMonitorScreenState();
@@ -104,12 +97,9 @@ class _RealTimeGasMonitorScreenState extends ConsumerState<RealTimeGasMonitorScr
                 case 'settings':
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => SettingsScreen(
-                        isDarkMode: widget.isDarkMode,
-                        onDarkModeChanged: widget.onDarkModeChanged,
+                                          MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
                       ),
-                    ),
                   );
                   break;
               }
@@ -151,10 +141,6 @@ class _RealTimeGasMonitorScreenState extends ConsumerState<RealTimeGasMonitorScr
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.read(gasDataProvider.notifier).refresh(),
-          ),
-          IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.dark_mode : Icons.light_mode),
-            onPressed: () => widget.onDarkModeChanged(!widget.isDarkMode),
           ),
         ],
       ),

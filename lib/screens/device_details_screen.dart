@@ -10,7 +10,7 @@ import 'alerts_history_screen.dart';
 
 class DeviceDetailsScreen extends StatefulWidget {
   final Device device;
-
+  
   const DeviceDetailsScreen({super.key, required this.device});
 
   @override
@@ -46,21 +46,22 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
     });
 
     try {
-      // Load updated device info
-      final updatedDevice = await _deviceService.getDevice(_currentDevice.deviceId);
-      if (updatedDevice != null) {
-        _currentDevice = updatedDevice;
+      // Load device details
+      final device = await _deviceService.getDevice(_currentDevice.deviceId);
+      if (device != null) {
+        _currentDevice = device;
       }
 
-      // Load connections and readings in parallel
-      final results = await Future.wait([
-        _deviceService.getDeviceConnections(_currentDevice.deviceId),
-        _supabaseService.getRecentReadingsFiltered(deviceName: _currentDevice.deviceName, limit: 50),
-      ]);
+      // Load recent connections
+      _connections = await _deviceService.getDeviceConnections(_currentDevice.deviceId);
+
+      // Load recent readings
+      _recentReadings = await _supabaseService.getRecentReadingsFiltered(
+        deviceName: _currentDevice.deviceName,
+        limit: 10,
+      );
 
       setState(() {
-        _connections = results[0] as List<DeviceConnection>;
-        _recentReadings = results[1] as List<GasSensorReading>;
         _isLoading = false;
       });
     } catch (e) {
@@ -71,40 +72,28 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
     }
   }
 
-  Future<void> _updateDeviceStatus(DeviceStatus status) async {
-    final success = await _deviceService.updateDeviceStatus(_currentDevice.deviceId, status);
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Device status updated to ${status.value}'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      _loadDeviceData();
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to update device status'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   Future<void> _deleteDevice() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Device'),
-        content: Text('Delete "${_currentDevice.deviceName}"? This will remove all device data and cannot be undone.'),
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Device',
+          style: TextStyle(color: Color(0xFFFFFFFF), fontFamily: 'SF Pro Display'),
+        ),
+        content: Text(
+          'Delete "${_currentDevice.deviceName}"? This will remove all device data and cannot be undone.',
+          style: const TextStyle(color: Color(0xFFE5E7EB), fontFamily: 'SF Pro Display'),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF9CA3AF))),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFF87171)),
             child: const Text('Delete'),
           ),
         ],
@@ -117,15 +106,19 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Device "${_currentDevice.deviceName}" deleted'),
-            backgroundColor: Colors.green,
+            backgroundColor: const Color(0xFF34BB8B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.pop(context);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete device'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text('Failed to delete device'),
+            backgroundColor: const Color(0xFFF87171),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -145,7 +138,433 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const AlertsHistoryScreen(),
+        builder: (context) => AlertsHistoryScreen(device: _currentDevice),
+      ),
+    );
+  }
+
+  Widget _buildDeviceInfoCard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34BB8B).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.gas_meter_rounded,
+                  color: Color(0xFF34BB8B),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _currentDevice.deviceName,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFFFFFF),
+                        fontFamily: 'SF Pro Display',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _currentDevice.deviceId,
+                      style: const TextStyle(
+                        color: Color(0xFF9CA3AF),
+                        fontSize: 14,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _currentDevice.connectionStatus == ConnectionStatus.online 
+                      ? const Color(0xFF34BB8B) 
+                      : const Color(0xFF6B7280),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _currentDevice.connectionStatus == ConnectionStatus.online ? 'online' : 'offline',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Action buttons
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34BB8B),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Allow',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getGasLevelColor(_currentDevice.currentGasLevel ?? 'UNKNOWN').withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _getGasLevelColor(_currentDevice.currentGasLevel ?? 'UNKNOWN')),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      (_currentDevice.currentGasLevel ?? 'UNKNOWN') == 'SAFE' ? Icons.check_circle : Icons.warning,
+                      color: _getGasLevelColor(_currentDevice.currentGasLevel ?? 'UNKNOWN'),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_currentDevice.currentGasLevel ?? 'UNKNOWN'} (${_currentDevice.currentGasValue ?? 'Unknown'})',
+                      style: TextStyle(
+                        color: _getGasLevelColor(_currentDevice.currentGasLevel ?? 'UNKNOWN'),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceInformationCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+                      Text(
+              'Device Information',
+             style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+               color: Color(0xFFFFFFFF),
+                fontFamily: 'SF Pro Display',
+              ),
+          ),
+          const SizedBox(height: 16),
+          
+          _buildInfoRow('Device Type', 'gas_sensor'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String? value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 14,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+        ),
+        Expanded(
+                      child: Text(
+              value ?? 'Unknown',
+             style: const TextStyle(
+               color: Color(0xFFFFFFFF),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGasLevelThresholdsCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Gas Level Thresholds',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFFFFFFF),
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Threshold cards in 2x2 grid
+          Row(
+            children: [
+              Expanded(
+                child: _buildThresholdCard(
+                  'SAFE',
+                  '0-100 ppm',
+                  const Color(0xFF34BB8B),
+                  Icons.check_circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildThresholdCard(
+                  'WARNING',
+                  '101-300 ppm',
+                  const Color(0xFFFBBF24),
+                  Icons.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildThresholdCard(
+                  'DANGER',
+                  '301-600 ppm',
+                  const Color(0xFFF87171),
+                  Icons.error,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildThresholdCard(
+                  'CRITICAL',
+                  '601+ ppm',
+                  const Color(0xFF8B0000), // Bloody red
+                  Icons.dangerous,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThresholdCard(String level, String range, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            level,
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            range,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontFamily: 'SF Pro Display',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatisticsCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Statistics',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFFFFFFF),
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF34BBAB).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.analytics,
+                        color: Color(0xFF34BBAB),
+                        size: 28,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_currentDevice.totalReadings}',
+                        style: const TextStyle(
+                          color: Color(0xFF34BBAB),
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                      const Text(
+                        'Total Readings',
+                        style: TextStyle(
+                          color: Color(0xFF34BBAB),
+                          fontSize: 12,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBBF24).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.history,
+                        color: Color(0xFFFBBF24),
+                        size: 28,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _navigateToAlertHistory,
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFFBBF24),
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                        ),
+                        child: const Text(
+                          'View',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'SF Pro Display',
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Alert History',
+                        style: TextStyle(
+                          color: Color(0xFFFBBF24),
+                          fontSize: 12,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -153,489 +572,128 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
   Color _getGasLevelColor(String gasLevel) {
     switch (gasLevel) {
       case 'SAFE':
-        return Colors.green;
+        return const Color(0xFF34BB8B);
       case 'WARNING':
-        return Colors.orange;
+        return const Color(0xFFFBBF24);
       case 'DANGER':
-        return Colors.red;
+        return const Color(0xFFF87171);
       case 'CRITICAL':
-        return Colors.red[800]!;
+        return const Color(0xFF8B0000); // Bloody red
+      case 'UNKNOWN':
+        return const Color(0xFF6B7280);
       default:
-        return Colors.grey;
+        return const Color(0xFF6B7280);
     }
-  }
-
-  Widget _buildDeviceOverview() {
-    // Using TimeFormatter for consistent 12-hour format
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Device Status Card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _currentDevice.statusColor.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _currentDevice.statusIcon,
-                          color: _currentDevice.statusColor,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _currentDevice.deviceName,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _currentDevice.deviceId,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _currentDevice.connectionStatusColor,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _currentDevice.connectionStatusIcon,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _currentDevice.displayConnectionStatus,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Status badges
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _currentDevice.statusColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _currentDevice.displayStatus,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      if (_currentDevice.currentGasLevel != null) ...[
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _getGasLevelColor(_currentDevice.currentGasLevel!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.sensors, color: Colors.white, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                _currentDevice.currentGasLevel!,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (_currentDevice.currentGasValue != null) ...[
-                                const SizedBox(width: 4),
-                                Text(
-                                  '(${_currentDevice.currentGasValue})',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Device Information
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Device Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildInfoRow('Device Type', _currentDevice.deviceType),
-                  if (_currentDevice.deviceIp != null)
-                    _buildInfoRow('IP Address', _currentDevice.deviceIp!),
-                  _buildInfoRow('First Seen', TimeFormatter.formatDateTime(_currentDevice.firstConnectedAt)),
-                  _buildInfoRow('Last Seen', TimeFormatter.formatDateTime(_currentDevice.lastConnectedAt)),
-                  const SizedBox(height: 16),
-                  _buildThresholdIndicators(),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Statistics
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Statistics',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          'Total Readings',
-                          '${_currentDevice.totalReadings}',
-                          Icons.sensors,
-                          Colors.blue,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: _navigateToAlertHistory,
-                          child: _buildStatCard(
-                            'Alert History',
-                            'View',
-                            Icons.warning_amber,
-                            Colors.orange,
-                            isClickable: true,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Action buttons
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Actions',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _currentDevice.status == DeviceStatus.active
-                              ? () => _updateDeviceStatus(DeviceStatus.blocked)
-                              : () => _updateDeviceStatus(DeviceStatus.active),
-                          icon: Icon(_currentDevice.status == DeviceStatus.active ? Icons.block : Icons.check_circle),
-                          label: Text(_currentDevice.status == DeviceStatus.active ? 'Block Device' : 'Allow Device'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: _currentDevice.status == DeviceStatus.active ? Colors.red : Colors.green,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _deleteDevice,
-                          icon: const Icon(Icons.delete),
-                          label: const Text('Delete'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, IconData icon, Color color, {bool isClickable = false}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-        boxShadow: isClickable ? [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          )
-        ] : null,
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: color.withValues(alpha: 0.8),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (isClickable) ...[
-            const SizedBox(height: 4),
-            Icon(
-              Icons.touch_app,
-              color: color.withValues(alpha: 0.6),
-              size: 16,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildThresholdIndicators() {
-    const int safeThreshold = 100;
-    const int warningThreshold = 300;
-    const int dangerThreshold = 600;
-    const int criticalThreshold = 1000;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Gas Level Thresholds',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildThresholdCard(
-                'SAFE',
-                '0-${safeThreshold}',
-                Icons.check_circle,
-                Colors.green,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildThresholdCard(
-                'WARNING',
-                '${safeThreshold + 1}-${warningThreshold}',
-                Icons.warning_amber,
-                Colors.orange,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildThresholdCard(
-                'DANGER',
-                '${warningThreshold + 1}-${dangerThreshold}',
-                Icons.error,
-                Colors.red,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildThresholdCard(
-                'CRITICAL',
-                '${dangerThreshold + 1}+',
-                Icons.dangerous,
-                Colors.red[800]!,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildThresholdCard(String level, String range, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            level,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${range} ppm',
-            style: TextStyle(
-              fontSize: 10,
-              color: color.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF000000),
       appBar: AppBar(
-        title: Text(_currentDevice.deviceName),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF000000),
+        elevation: 0,
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFFFFFFFF)),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        title: Text(
+          _currentDevice.deviceName,
+          style: const TextStyle(
+            color: Color(0xFFFFFFFF),
+            fontWeight: FontWeight.bold,
+            fontFamily: 'SF Pro Display',
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadDeviceData,
-            tooltip: 'Refresh',
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.refresh, color: Color(0xFF34BB8B)),
+              onPressed: _loadDeviceData,
+            ),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF34BB8B)),
+            )
           : _error != null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: Colors.red[300],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: const TextStyle(fontSize: 16),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadDeviceData,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                  child: Container(
+                    margin: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF87171).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Color(0xFFF87171),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFFE5E7EB),
+                            fontFamily: 'SF Pro Display',
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadDeviceData,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF34BB8B),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
                 )
-              : _buildDeviceOverview(),
+              : RefreshIndicator(
+                  onRefresh: _loadDeviceData,
+                  color: const Color(0xFF34BB8B),
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        _buildDeviceInfoCard(),
+                        _buildDeviceInformationCard(),
+                        _buildGasLevelThresholdsCard(),
+                        _buildStatisticsCard(),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
     );
   }
 } 
